@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: extinction
+  labels:
+    app: extinction
+spec:
+  type: NodePort
+  ports:
+  - port: 29020
+    targetPort: 32020
+    nodePort: 32020
+    protocol: UDP
+    name: ext-client-udp
+  - port: 29021
+    targetPort: 32021
+    nodePort: 32021
+    protocol: UDP
+    name: ext-srv-udp
+  - port: 29022
+    targetPort: 32022
+    nodePort: 32022
+    protocol: UDP
+    name: ext-steam-udp
+  - port: 29023
+    targetPort: 32023
+    nodePort: 32023
+    protocol: TCP
+    name: ext-rcon-udp
+  selector:
+    app: extinction

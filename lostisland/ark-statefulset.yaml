@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lostisland
+  labels:
+    app: lostisland
+spec:
+  replicas: 1
+  serviceName: lostisland
+  selector:
+    matchLabels:
+      app: lostisland
+  template:
+    metadata:
+      labels:
+        app: lostisland
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: lostisland
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Lost Island
+          - name: CLIENTPORT
+            value: "32036"
+          - name: SERVERPORT
+            value: "32037"
+          - name: STEAMPORT
+            value: "32038"
+          - name: RCONPORT
+            value: "32039"
+          - name: SERVERMAP
+            value: LostIsland # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: lostisland-secrets
+                key: TZ
+        ports:
+          - containerPort: 32036
+            protocol: UDP
+            name: lis-client-udp
+          - containerPort: 32037
+            protocol: UDP
+            name: lis-server-udp
+          - containerPort: 32038
+            protocol: UDP
+            name: lis-steam-udp
+          - containerPort: 32039
+            protocol: TCP
+            name: lis-rcon-tcp
+        volumeMounts:
+          - name: lostisland-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: lostisland-prep-container
+          image: busybox
+          volumeMounts:
+            - name: lostisland-persistent-storage
+              mountPath: /ark
+            - name: lostisland-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: lostisland-persistent-storage
+          persistentVolumeClaim:
+            claimName: lostisland
+        - name: lostisland-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

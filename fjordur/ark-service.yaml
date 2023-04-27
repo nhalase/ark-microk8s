@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fjordur
+  labels:
+    app: fjordur
+spec:
+  type: NodePort
+  ports:
+  - port: 29040
+    targetPort: 32040
+    nodePort: 32040
+    protocol: UDP
+    name: fjo-client-udp
+  - port: 29041
+    targetPort: 32041
+    nodePort: 32041
+    protocol: UDP
+    name: fjo-srv-udp
+  - port: 29042
+    targetPort: 32042
+    nodePort: 32042
+    protocol: UDP
+    name: fjo-steam-udp
+  - port: 29043
+    targetPort: 32043
+    nodePort: 32043
+    protocol: TCP
+    name: fjo-rcon-udp
+  selector:
+    app: fjordur

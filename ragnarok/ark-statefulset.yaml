@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ragnarok
+  labels:
+    app: ragnarok
+spec:
+  replicas: 1
+  serviceName: ragnarok
+  selector:
+    matchLabels:
+      app: ragnarok
+  template:
+    metadata:
+      labels:
+        app: ragnarok
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: ragnarok
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Ragnarok
+          - name: CLIENTPORT
+            value: "32012"
+          - name: SERVERPORT
+            value: "32013"
+          - name: STEAMPORT
+            value: "32014"
+          - name: RCONPORT
+            value: "32015"
+          - name: SERVERMAP
+            value: Ragnarok # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: ragnarok-secrets
+                key: TZ
+        ports:
+          - containerPort: 32012
+            protocol: UDP
+            name: rag-client-udp
+          - containerPort: 32013
+            protocol: UDP
+            name: rag-server-udp
+          - containerPort: 32014
+            protocol: UDP
+            name: rag-steam-udp
+          - containerPort: 32015
+            protocol: TCP
+            name: rag-rcon-tcp
+        volumeMounts:
+          - name: ragnarok-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: ragnarok-prep-container
+          image: busybox
+          volumeMounts:
+            - name: ragnarok-persistent-storage
+              mountPath: /ark
+            - name: ragnarok-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: ragnarok-persistent-storage
+          persistentVolumeClaim:
+            claimName: ragnarok
+        - name: ragnarok-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

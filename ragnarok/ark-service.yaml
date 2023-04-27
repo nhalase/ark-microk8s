@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ragnarok
+  labels:
+    app: ragnarok
+spec:
+  type: NodePort
+  ports:
+  - port: 29012
+    targetPort: 32012
+    nodePort: 32012
+    protocol: UDP
+    name: rag-client-udp
+  - port: 29013
+    targetPort: 32013
+    nodePort: 32013
+    protocol: UDP
+    name: rag-srv-udp
+  - port: 29014
+    targetPort: 32014
+    nodePort: 32014
+    protocol: UDP
+    name: rag-steam-udp
+  - port: 29015
+    targetPort: 32015
+    nodePort: 32015
+    protocol: TCP
+    name: rag-rcon-udp
+  selector:
+    app: ragnarok

@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: fjordur
+  labels:
+    app: fjordur
+spec:
+  replicas: 1
+  serviceName: fjordur
+  selector:
+    matchLabels:
+      app: fjordur
+  template:
+    metadata:
+      labels:
+        app: fjordur
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: fjordur
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Fjordur
+          - name: CLIENTPORT
+            value: "32040"
+          - name: SERVERPORT
+            value: "32041"
+          - name: STEAMPORT
+            value: "32042"
+          - name: RCONPORT
+            value: "32043"
+          - name: SERVERMAP
+            value: Fjordur # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: fjordur-secrets
+                key: TZ
+        ports:
+          - containerPort: 32040
+            protocol: UDP
+            name: fjo-client-udp
+          - containerPort: 32041
+            protocol: UDP
+            name: fjo-server-udp
+          - containerPort: 32042
+            protocol: UDP
+            name: fjo-steam-udp
+          - containerPort: 32043
+            protocol: TCP
+            name: fjo-rcon-tcp
+        volumeMounts:
+          - name: fjordur-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: fjordur-prep-container
+          image: busybox
+          volumeMounts:
+            - name: fjordur-persistent-storage
+              mountPath: /ark
+            - name: fjordur-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: fjordur-persistent-storage
+          persistentVolumeClaim:
+            claimName: fjordur
+        - name: fjordur-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

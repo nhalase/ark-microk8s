@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ./ark-pvc.yaml
+- ./ark-service.yaml
+- ./ark-statefulset.yaml
+secretGenerator:
+- envs:
+  - aberration-secrets.env
+  name: aberration-secrets
+  options:
+    disableNameSuffixHash: true
+namespace: ark

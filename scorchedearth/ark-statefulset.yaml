@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: scorchedearth
+  labels:
+    app: scorchedearth
+spec:
+  replicas: 1
+  serviceName: scorchedearth
+  selector:
+    matchLabels:
+      app: scorchedearth
+  template:
+    metadata:
+      labels:
+        app: scorchedearth
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: scorchedearth
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Scorched Earth
+          - name: CLIENTPORT
+            value: "32008"
+          - name: SERVERPORT
+            value: "32009"
+          - name: STEAMPORT
+            value: "32010"
+          - name: RCONPORT
+            value: "32011"
+          - name: SERVERMAP
+            value: ScorchedEarth_P # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: scorchedearth-secrets
+                key: TZ
+        ports:
+          - containerPort: 32008
+            protocol: UDP
+            name: sea-client-udp
+          - containerPort: 32009
+            protocol: UDP
+            name: sea-server-udp
+          - containerPort: 32010
+            protocol: UDP
+            name: sea-steam-udp
+          - containerPort: 32011
+            protocol: TCP
+            name: sea-rcon-tcp
+        volumeMounts:
+          - name: scorchedearth-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: scorchedearth-prep-container
+          image: busybox
+          volumeMounts:
+            - name: scorchedearth-persistent-storage
+              mountPath: /ark
+            - name: scorchedearth-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: scorchedearth-persistent-storage
+          persistentVolumeClaim:
+            claimName: scorchedearth
+        - name: scorchedearth-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: theisland
+  labels:
+    app: theisland
+spec:
+  type: NodePort
+  ports:
+  - port: 29000
+    targetPort: 32000
+    nodePort: 32000
+    protocol: UDP
+    name: isl-client-udp
+  - port: 29001
+    targetPort: 32001
+    nodePort: 32001
+    protocol: UDP
+    name: isl-srv-udp
+  - port: 29002
+    targetPort: 32002
+    nodePort: 32002
+    protocol: UDP
+    name: isl-steam-udp
+  - port: 29003
+    targetPort: 32003
+    nodePort: 32003
+    protocol: TCP
+    name: isl-rcon-udp
+  selector:
+    app: theisland

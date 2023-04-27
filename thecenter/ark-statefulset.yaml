@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: thecenter
+  labels:
+    app: thecenter
+spec:
+  replicas: 1
+  serviceName: thecenter
+  selector:
+    matchLabels:
+      app: thecenter
+  template:
+    metadata:
+      labels:
+        app: thecenter
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: thecenter
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: The Center
+          - name: CLIENTPORT
+            value: "32004"
+          - name: SERVERPORT
+            value: "32005"
+          - name: STEAMPORT
+            value: "32006"
+          - name: RCONPORT
+            value: "32007"
+          - name: SERVERMAP
+            value: TheCenter # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: thecenter-secrets
+                key: TZ
+        ports:
+          - containerPort: 32004
+            protocol: UDP
+            name: ctr-client-udp
+          - containerPort: 32005
+            protocol: UDP
+            name: ctr-server-udp
+          - containerPort: 32006
+            protocol: UDP
+            name: ctr-steam-udp
+          - containerPort: 32007
+            protocol: TCP
+            name: ctr-rcon-tcp
+        volumeMounts:
+          - name: thecenter-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: thecenter-prep-container
+          image: busybox
+          volumeMounts:
+            - name: thecenter-persistent-storage
+              mountPath: /ark
+            - name: thecenter-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: thecenter-persistent-storage
+          persistentVolumeClaim:
+            claimName: thecenter
+        - name: thecenter-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

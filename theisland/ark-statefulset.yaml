@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: theisland
+  labels:
+    app: theisland
+spec:
+  replicas: 1
+  serviceName: theisland
+  selector:
+    matchLabels:
+      app: theisland
+  template:
+    metadata:
+      labels:
+        app: theisland
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: theisland
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: The Island
+          - name: CLIENTPORT
+            value: "32000"
+          - name: SERVERPORT
+            value: "32001"
+          - name: STEAMPORT
+            value: "32002"
+          - name: RCONPORT
+            value: "32003"
+          - name: SERVERMAP
+            value: TheIsland # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: theisland-secrets
+                key: TZ
+        ports:
+          - containerPort: 32000
+            protocol: UDP
+            name: isl-client-udp
+          - containerPort: 32001
+            protocol: UDP
+            name: isl-server-udp
+          - containerPort: 32002
+            protocol: UDP
+            name: isl-steam-udp
+          - containerPort: 32003
+            protocol: TCP
+            name: isl-rcon-tcp
+        volumeMounts:
+          - name: theisland-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: theisland-prep-container
+          image: busybox
+          volumeMounts:
+            - name: theisland-persistent-storage
+              mountPath: /ark
+            - name: theisland-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: theisland-persistent-storage
+          persistentVolumeClaim:
+            claimName: theisland
+        - name: theisland-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

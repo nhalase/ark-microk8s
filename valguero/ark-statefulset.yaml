@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valguero
+  labels:
+    app: valguero
+spec:
+  replicas: 1
+  serviceName: valguero
+  selector:
+    matchLabels:
+      app: valguero
+  template:
+    metadata:
+      labels:
+        app: valguero
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: valguero
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Valguero
+          - name: CLIENTPORT
+            value: "32024"
+          - name: SERVERPORT
+            value: "32025"
+          - name: STEAMPORT
+            value: "32026"
+          - name: RCONPORT
+            value: "32027"
+          - name: SERVERMAP
+            value: Valguero_P # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: valguero-secrets
+                key: TZ
+        ports:
+          - containerPort: 32024
+            protocol: UDP
+            name: val-client-udp
+          - containerPort: 32025
+            protocol: UDP
+            name: val-server-udp
+          - containerPort: 32026
+            protocol: UDP
+            name: val-steam-udp
+          - containerPort: 32027
+            protocol: TCP
+            name: val-rcon-tcp
+        volumeMounts:
+          - name: valguero-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: valguero-prep-container
+          image: busybox
+          volumeMounts:
+            - name: valguero-persistent-storage
+              mountPath: /ark
+            - name: valguero-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: valguero-persistent-storage
+          persistentVolumeClaim:
+            claimName: valguero
+        - name: valguero-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

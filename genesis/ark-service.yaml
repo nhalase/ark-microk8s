@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: genesis
+  labels:
+    app: genesis
+spec:
+  type: NodePort
+  ports:
+  - port: 29028
+    targetPort: 32028
+    nodePort: 32028
+    protocol: UDP
+    name: gen-client-udp
+  - port: 29029
+    targetPort: 32029
+    nodePort: 32029
+    protocol: UDP
+    name: gen-srv-udp
+  - port: 29030
+    targetPort: 32030
+    nodePort: 32030
+    protocol: UDP
+    name: gen-steam-udp
+  - port: 29031
+    targetPort: 32031
+    nodePort: 32031
+    protocol: TCP
+    name: gen-rcon-udp
+  selector:
+    app: genesis

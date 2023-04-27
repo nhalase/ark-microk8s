@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: valguero
+  labels:
+    app: valguero
+spec:
+  type: NodePort
+  ports:
+  - port: 29024
+    targetPort: 32024
+    nodePort: 32024
+    protocol: UDP
+    name: val-client-udp
+  - port: 29025
+    targetPort: 32025
+    nodePort: 32025
+    protocol: UDP
+    name: val-srv-udp
+  - port: 29026
+    targetPort: 32026
+    nodePort: 32026
+    protocol: UDP
+    name: val-steam-udp
+  - port: 29027
+    targetPort: 32027
+    nodePort: 32027
+    protocol: TCP
+    name: val-rcon-udp
+  selector:
+    app: valguero

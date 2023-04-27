@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lostisland
+  labels:
+    app: lostisland
+spec:
+  type: NodePort
+  ports:
+  - port: 29036
+    targetPort: 32036
+    nodePort: 32036
+    protocol: UDP
+    name: lis-client-udp
+  - port: 29037
+    targetPort: 32037
+    nodePort: 32037
+    protocol: UDP
+    name: lis-srv-udp
+  - port: 29038
+    targetPort: 32038
+    nodePort: 32038
+    protocol: UDP
+    name: lis-steam-udp
+  - port: 29039
+    targetPort: 32039
+    nodePort: 32039
+    protocol: TCP
+    name: lis-rcon-udp
+  selector:
+    app: lostisland

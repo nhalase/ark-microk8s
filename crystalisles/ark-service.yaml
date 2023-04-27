@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: crystalisles
+  labels:
+    app: crystalisles
+spec:
+  type: NodePort
+  ports:
+  - port: 29032
+    targetPort: 32032
+    nodePort: 32032
+    protocol: UDP
+    name: cis-client-udp
+  - port: 29033
+    targetPort: 32033
+    nodePort: 32033
+    protocol: UDP
+    name: cis-srv-udp
+  - port: 29034
+    targetPort: 32034
+    nodePort: 32034
+    protocol: UDP
+    name: cis-steam-udp
+  - port: 29035
+    targetPort: 32035
+    nodePort: 32035
+    protocol: TCP
+    name: cis-rcon-udp
+  selector:
+    app: crystalisles

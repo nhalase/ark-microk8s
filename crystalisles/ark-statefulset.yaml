@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: crystalisles
+  labels:
+    app: crystalisles
+spec:
+  replicas: 1
+  serviceName: crystalisles
+  selector:
+    matchLabels:
+      app: crystalisles
+  template:
+    metadata:
+      labels:
+        app: crystalisles
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: crystalisles
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Crystal Isles
+          - name: CLIENTPORT
+            value: "32032"
+          - name: SERVERPORT
+            value: "32033"
+          - name: STEAMPORT
+            value: "32034"
+          - name: RCONPORT
+            value: "32035"
+          - name: SERVERMAP
+            value: CrystalIsles # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: crystalisles-secrets
+                key: TZ
+        ports:
+          - containerPort: 32032
+            protocol: UDP
+            name: cis-client-udp
+          - containerPort: 32033
+            protocol: UDP
+            name: cis-server-udp
+          - containerPort: 32034
+            protocol: UDP
+            name: cis-steam-udp
+          - containerPort: 32035
+            protocol: TCP
+            name: cis-rcon-tcp
+        volumeMounts:
+          - name: crystalisles-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: crystalisles-prep-container
+          image: busybox
+          volumeMounts:
+            - name: crystalisles-persistent-storage
+              mountPath: /ark
+            - name: crystalisles-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: crystalisles-persistent-storage
+          persistentVolumeClaim:
+            claimName: crystalisles
+        - name: crystalisles-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg

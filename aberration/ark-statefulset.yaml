@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aberration
+  labels:
+    app: aberration
+spec:
+  replicas: 1
+  serviceName: aberration
+  selector:
+    matchLabels:
+      app: aberration
+  template:
+    metadata:
+      labels:
+        app: aberration
+    spec:
+      containers:
+      - image: nhalase/ark
+        imagePullPolicy: Always
+        name: aberration
+        resources:
+          requests:
+            cpu: 2000m
+            memory: 12Gi
+        env:
+          - name: SESSIONNAME
+            value: Aberration
+          - name: CLIENTPORT
+            value: "32016"
+          - name: SERVERPORT
+            value: "32017"
+          - name: STEAMPORT
+            value: "32018"
+          - name: RCONPORT
+            value: "32019"
+          - name: SERVERMAP
+            value: Aberration_P # TheIsland, TheCenter, ScorchedEarth_P, Ragnarok, Aberration_P, Extinction, Valguero_P, Genesis, CrystalIsles, LostIsland, Fjordur
+          - name: SERVERPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: SERVERPASSWORD
+          - name: ADMINPASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: server-secrets
+                key: ADMINPASSWORD
+          - name: TZ
+            valueFrom:
+              secretKeyRef:
+                name: aberration-secrets
+                key: TZ
+        ports:
+          - containerPort: 32016
+            protocol: UDP
+            name: abe-client-udp
+          - containerPort: 32017
+            protocol: UDP
+            name: abe-server-udp
+          - containerPort: 32018
+            protocol: UDP
+            name: abe-steam-udp
+          - containerPort: 32019
+            protocol: TCP
+            name: abe-rcon-tcp
+        volumeMounts:
+          - name: aberration-persistent-storage
+            mountPath: /ark
+          - name: arkmanager-main-cfg-volume
+            mountPath: /etc/arkmanager/instances/main.cfg
+            subPath: main.cfg
+      # Use an init container to help prepare some config files before the main container starts
+      initContainers:
+        - name: aberration-prep-container
+          image: busybox
+          volumeMounts:
+            - name: aberration-persistent-storage
+              mountPath: /ark
+            - name: aberration-config-volume
+              mountPath: /ark-config
+          command: ['sh', '-c']
+          args:
+            - rm -f /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              mkdir -p /ark/server/ShooterGame/Saved/Config/LinuxServer;
+              cd /ark;
+              ln -s /ark-config/AllowedCheaterSteamIDs.txt /ark/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt;
+              mkdir -p /ark/server/ShooterGame/Binaries/Linux/;
+              ln -s /ark-config/PlayersJoinNoCheck.txt /ark/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheck.txt;
+              ln -s /ark-config/PlayersExclusiveJoinList.txt /ark/server/ShooterGame/Binaries/Linux/PlayersExclusiveJoinList.txt;
+              chown -R 10000:10001 /ark
+      volumes:
+        - name: aberration-persistent-storage
+          persistentVolumeClaim:
+            claimName: aberration
+        - name: aberration-config-volume
+          projected:
+            sources:
+              - configMap:
+                  name: player-lists
+        - name: arkmanager-main-cfg-volume
+          configMap:
+            name: arkmanager-main-cfg
